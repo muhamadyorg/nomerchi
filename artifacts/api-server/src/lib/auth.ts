@@ -9,6 +9,7 @@ const JWT_SECRET = process.env.SESSION_SECRET || "mapvizit-secret-key-change-in-
 export interface JwtPayload {
   userId: number;
   role: string;
+  tokenVersion: number;
 }
 
 export function signToken(payload: JwtPayload): string {
@@ -45,6 +46,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const token = authHeader.slice(7);
   try {
     const payload = verifyToken(token);
+    // tokenVersion tekshirish — eski tokenlar avtomatik bekor bo'ladi
+    const [user] = await db.select({ tokenVersion: usersTable.tokenVersion })
+      .from(usersTable).where(eq(usersTable.id, payload.userId)).limit(1);
+    if (!user || user.tokenVersion !== payload.tokenVersion) {
+      res.status(401).json({ error: "Session expired", code: "SESSION_EXPIRED" });
+      return;
+    }
     req.userId = payload.userId;
     req.userRole = payload.role;
     next();
