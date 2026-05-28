@@ -6,6 +6,7 @@ import { UpdateSettingsBody, ImportDataBody } from "@workspace/api-zod";
 import {
   isDriveConfigured, generateAuthUrl, exchangeCodeForAccount,
   getDriveAccounts, saveDriveAccounts, getRedirectUri,
+  isDriveEnabled, setDriveEnabled, uploadToDrive,
 } from "../lib/google-drive";
 
 // SQL qiymatni to'g'ri escape qilish
@@ -260,9 +261,26 @@ router.get("/drive/status", requireRole("sudo"), async (_req, res) => {
   const configured = isDriveConfigured();
   const accounts = configured ? await getDriveAccounts() : [];
   const redirectUri = getRedirectUri();
+  const enabledRaw = await getSetting("driveEnabled");
+  const enabled = enabledRaw === "true";
+
+  // Uploads papkasidagi lokalrasm sonini hisoblaymiz
+  const { default: fs } = await import("fs");
+  const { default: path } = await import("path");
+  const { fileURLToPath } = await import("url");
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const uploadsDir = path.join(__dirname, "..", "uploads");
+  let localImagesCount = 0;
+  try {
+    const files = fs.readdirSync(uploadsDir);
+    localImagesCount = files.filter(f => /\.(jpg|jpeg|png|webp|gif)$/i.test(f)).length;
+  } catch { /* papka yo'q */ }
+
   res.json({
     configured,
+    enabled,
     redirectUri,
+    localImagesCount,
     accounts: accounts.map(a => ({
       id: a.id,
       email: a.email,
@@ -271,6 +289,62 @@ router.get("/drive/status", requireRole("sudo"), async (_req, res) => {
       isFull: a.bytesUsed >= 14.5 * 1024 * 1024 * 1024,
     })),
   });
+});
+
+// PATCH /settings/drive/enabled
+router.patch("/drive/enabled", requireRole("sudo"), async (req, res) => {
+  const { enabled } = req.body as { enabled: boolean };
+  if (typeof enabled !== "boolean") { res.status(400).json({ error: "enabled boolean kerak" }); return; }
+  await setDriveEnabled(enabled);
+  res.json({ enabled });
+});
+
+// POST /settings/drive/migrate  — uploads papkasidagi rasmlarni Drive ga ko'chirish
+router.post("/drive/migrate", requireRole("sudo"), async (req, res) => {
+  const driveReady = await isDriveEnabled();
+  if (!driveReady) { res.status(400).json({ error: "Drive yoqilmagan yoki akkaunt yo'q" }); return; }
+
+  const { default: fs } = await import("fs");
+  const { default: path } = await import("path");
+  const { fileURLToPath } = await import("url");
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const uploadsDir = path.join(__dirname, "..", "uploads");
+
+  // DB da /api/uploads/ bilan boshlangan barcha rasmlarni topamiz
+  const localImages = await db.select().from(pointImagesTable)
+    .then(rows => rows.filter(r => r.url?.startsWith("/api/uploads/")));
+
+  let migrated = 0, failed = 0;
+  const errors: string[] = [];
+
+  for (const img of localImages) {
+    const filename = img.url.replace("/api/uploads/", "");
+    const filepath = path.join(uploadsDir, filename);
+    try {
+      if (!fs.existsSync(filepath)) {
+        errors.push(`Fayl topilmadi: ${filename}`);
+        failed++;
+        continue;
+      }
+      const buffer = fs.readFileSync(filepath);
+      const ext = path.extname(filename).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif",
+      };
+      const mimeType = mimeMap[ext] ?? "image/jpeg";
+      const driveUrl = await uploadToDrive(buffer, filename, mimeType);
+      if (!driveUrl) { errors.push(`Drive to'ldi: ${filename}`); failed++; continue; }
+
+      await db.update(pointImagesTable).set({ url: driveUrl }).where(eq(pointImagesTable.id, img.id));
+      migrated++;
+    } catch (e: any) {
+      errors.push(`${filename}: ${e.message}`);
+      failed++;
+    }
+  }
+
+  res.json({ total: localImages.length, migrated, failed, errors: errors.slice(0, 10) });
 });
 
 // GET /settings/drive/auth-url
