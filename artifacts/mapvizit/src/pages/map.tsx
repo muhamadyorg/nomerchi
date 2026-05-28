@@ -569,6 +569,23 @@ export default function MapPage() {
 
   useEffect(() => { if (isError) setLocation("/login"); }, [isError, setLocation]);
 
+  // Session polling — har 45 sekundda token hali ham amal qiladimi tekshiradi
+  useEffect(() => {
+    const check = async () => {
+      const token = localStorage.getItem("mapvizit_token");
+      if (!token) { setLocation("/login"); return; }
+      try {
+        const res = await fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
+        if (res.status === 401) {
+          localStorage.removeItem("mapvizit_token");
+          setLocation("/login?kicked=1");
+        }
+      } catch { /* tarmoq xatosi — ignore */ }
+    };
+    const id = setInterval(check, 45_000);
+    return () => clearInterval(id);
+  }, [setLocation]);
+
   // Search
   useEffect(() => {
     if (!searchQuery.trim() || !allPoints) { setSearchResults([]); return; }
