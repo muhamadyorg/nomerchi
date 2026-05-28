@@ -293,11 +293,9 @@ if [ "$MODE" != "nginx_only" ] && [ -n "${DB_URL:-}" ]; then
   sep
   info "Database sxemasi sinxronlashtirilmoqda..."
   export DATABASE_URL="$DB_URL"
-  if yes | pnpm --filter @workspace/db run push 2>&1 | tail -5; then
-    ok "Database sxemasi tayyor"
-  else
+  pnpm --filter @workspace/db run push 2>&1 | tail -5 || \
     warn "DB push da muammo bo'lishi mumkin. Keyinroq tekshiring: pnpm --filter @workspace/db run push"
-  fi
+  ok "Database sxemasi tayyor"
 fi
 
 # ════════════════════════════════════════════════════════════════
@@ -369,10 +367,15 @@ if [ "$MODE" != "nginx_only" ]; then
   pm2 save >/dev/null 2>&1
   ok "PM2 ishlamoqda: mapvizit-api (port $API_PORT)"
 
+  # PM2 versiyasini yangilaymiz (in-memory mismatch)
+  pm2 update >/dev/null 2>&1 || true
+
   # Tizim yuklanganda avtomatik ishga tushirish
-  STARTUP_CMD=$(pm2 startup 2>&1 | grep "sudo env\|sudo systemctl" | head -1)
+  STARTUP_CMD=$(pm2 startup 2>/dev/null | grep "sudo env\|sudo systemctl" | head -1 || true)
   if [ -n "$STARTUP_CMD" ]; then
     eval "$STARTUP_CMD" >/dev/null 2>&1 && ok "PM2 autostart yoqildi" || true
+  else
+    ok "PM2 autostart (allaqachon yoqilgan yoki qo'lda sozlash kerak)"
   fi
 fi
 
