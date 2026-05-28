@@ -283,7 +283,7 @@ cd "$APP_DIR"
 if [ "$MODE" != "nginx_only" ]; then
   sep
   info "Kutubxonalar o'rnatilmoqda..."
-  pnpm install --frozen-lockfile 2>&1 | tail -3
+  pnpm install --no-frozen-lockfile 2>&1 | tail -3
   ok "Kutubxonalar tayyor"
 fi
 
