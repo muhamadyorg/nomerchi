@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
-import { useLogin } from "@workspace/api-client-react";
+import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,24 +9,57 @@ import { NomerchiLogo } from "@/components/nomerchi-logo";
 
 export default function Login() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const { toast } = useToast();
-  const loginMutation = useLogin();
-  
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    if (search.includes("kicked=1")) {
+      toast({ title: "Siz boshqa qurilmadan chiqarildingiz", description: "Qayta kiring.", variant: "destructive" });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const doLogin = async (force: boolean) => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, force }),
+      });
+      const data = await res.json();
+
+      if (res.status === 409 && data.requiresForce) {
+        setShowConfirm(true);
+        return;
+      }
+      if (!res.ok) {
+        toast({ title: "Xato", description: data.error || "Login yoki parol noto'g'ri.", variant: "destructive" });
+        return;
+      }
+      localStorage.setItem("mapvizit_token", data.token);
+      toast({ title: "Xush kelibsiz!", description: "Tizimga muvaffaqiyatli kirdingiz." });
+      setLocation("/map");
+    } catch {
+      toast({ title: "Xato", description: "Serverga ulanib bo'lmadi.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loginMutation.mutate({ data: { username, password } }, {
-      onSuccess: (data) => {
-        localStorage.setItem("mapvizit_token", data.token);
-        toast({ title: "Xush kelibsiz!", description: "Tizimga muvaffaqiyatli kirdingiz." });
-        setLocation("/map");
-      },
-      onError: (err) => {
-        toast({ title: "Xato", description: err.message || "Login yoki parol noto'g'ri.", variant: "destructive" });
-      }
-    });
+    doLogin(false);
+  };
+
+  const handleForceLogin = () => {
+    setShowConfirm(false);
+    doLogin(true);
   };
 
   return (
@@ -42,6 +74,39 @@ export default function Login() {
             <p className="text-slate-400 text-sm mt-1">Xarita va raqamli vizitka platformasi</p>
           </div>
         </div>
+
+        {/* Boshqa qurilma ogohlantirishi */}
+        {showConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                  <span className="text-xl">⚠️</span>
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-100">Hisob boshqa qurilmada ochiq</p>
+                  <p className="text-sm text-slate-400 mt-0.5">OK bosganda eski qurilmadan avtomatik chiqiladi</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-slate-700 text-slate-300"
+                  onClick={() => setShowConfirm(false)}
+                >
+                  Bekor qilish
+                </Button>
+                <Button
+                  className="flex-1 bg-amber-600 hover:bg-amber-500 text-white"
+                  onClick={handleForceLogin}
+                  disabled={loading}
+                >
+                  {loading ? "Kirilmoqda..." : "OK — Kirish"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <Card className="border-slate-800 bg-slate-900/80 backdrop-blur shadow-2xl">
           <CardHeader className="pb-4">
@@ -80,9 +145,9 @@ export default function Login() {
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-semibold shadow-lg"
-                disabled={loginMutation.isPending}
+                disabled={loading}
               >
-                {loginMutation.isPending ? "Kirilmoqda..." : "Kirish"}
+                {loading ? "Kirilmoqda..." : "Kirish"}
               </Button>
             </CardFooter>
           </form>
