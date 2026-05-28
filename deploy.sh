@@ -469,9 +469,11 @@ content = re.sub(r'root\s+[^;]+;', f'root {frontend};', content, count=1)
 # 3. index ni to'g'irlaymiz
 content = re.sub(r'index\s+[^;]+;', 'index index.html;', content, count=1)
 
-# 4. Eski location / va location /api bloklarini olib tashlaymiz
+# 4. FAQAT bizning bloklarimizni olib tashlaymiz
+# location /api — hammasini (bizniki)
 content = re.sub(r'[ \t]*location\s+/api\b[^{]*\{[^}]*(?:\{[^}]*\}[^}]*)?\}[ \t]*\n?', '', content, flags=re.DOTALL)
-content = re.sub(r'[ \t]*location\s+/\s*\{[^}]*\}[ \t]*\n?', '', content, flags=re.DOTALL)
+# location / — FAQAT try_files bo'lganlari (SSL redirect ni saqlab qo'yamiz!)
+content = re.sub(r'[ \t]*location\s+/\s*\{[^}]*try_files[^}]*\}[ \t]*\n?', '', content, flags=re.DOTALL)
 
 # 5. Yangi location bloklarini oxirgi } dan oldin qo'shamiz
 mapvizit_block = f"""
