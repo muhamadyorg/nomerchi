@@ -107,6 +107,8 @@ export default function Sudo() {
   const [driveLoading, setDriveLoading] = useState(false);
   const [migrateLoading, setMigrateLoading] = useState(false);
   const [migrateResult, setMigrateResult] = useState<{ total: number; migrated: number; failed: number; errors: string[] } | null>(null);
+  const [fixUrlsLoading, setFixUrlsLoading] = useState(false);
+  const [fixUrlsResult, setFixUrlsResult] = useState<{ total: number; fixed: number } | null>(null);
 
   // Import
   const [pendingSql, setPendingSql] = useState<string | null>(null);
@@ -177,6 +179,18 @@ export default function Sudo() {
       setDriveStatus(prev => prev ? { ...prev, enabled } : prev);
       toast({ title: enabled ? "Google Drive yoqildi" : "Google Drive o'chirildi" });
     }
+  };
+
+  const fixDriveUrls = async () => {
+    const token = localStorage.getItem("mapvizit_token");
+    setFixUrlsLoading(true);
+    setFixUrlsResult(null);
+    try {
+      const r = await fetch("/api/settings/drive/fix-urls", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      setFixUrlsResult(data);
+      toast({ title: `Tuzatildi: ${data.fixed} ta rasm URL`, description: "Sahifani yangilang" });
+    } finally { setFixUrlsLoading(false); }
   };
 
   const migrateToDriver = async () => {
@@ -911,6 +925,29 @@ export default function Sudo() {
                                 {migrateResult.errors.map((e, i) => <li key={i}>• {e}</li>)}
                               </ul>
                             )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Eski Drive URL larni tuzatish */}
+                    {driveStatus.enabled && (
+                      <div className="rounded-md bg-orange-500/10 border border-orange-500/20 p-3 space-y-3">
+                        <div>
+                          <p className="text-sm font-medium text-orange-400">Ko'rinmaydigan rasmlarni tuzatish</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Eski Drive URL formatini yangi formatga o'tkazadi — bu ko'rinmaydigan rasmlarni tuzatadi
+                          </p>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={fixDriveUrls} disabled={fixUrlsLoading} className="w-full border-orange-500/30 text-orange-400 hover:bg-orange-500/10">
+                          {fixUrlsLoading
+                            ? <><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />Tuzatilmoqda...</>
+                            : "🔧 Rasmlar URL ni tuzatish"
+                          }
+                        </Button>
+                        {fixUrlsResult && (
+                          <div className="rounded text-xs p-2 bg-green-500/10 text-green-400">
+                            Jami: {fixUrlsResult.total} · Tuzatildi: {fixUrlsResult.fixed} · Sahifani yangilang
                           </div>
                         )}
                       </div>
