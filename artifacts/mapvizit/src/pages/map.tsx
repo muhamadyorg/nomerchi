@@ -569,6 +569,21 @@ export default function MapPage() {
 
   useEffect(() => { if (isError) setLocation("/login"); }, [isError, setLocation]);
 
+  // URL ?pointId=X bo'lsa — allPoints yuklanganida avtomatik ochish
+  useEffect(() => {
+    if (!allPoints) return;
+    const params = new URLSearchParams(window.location.search);
+    const pid = params.get("pointId");
+    if (!pid) return;
+    const found = (allPoints as any[]).find(p => String(p.id) === pid);
+    if (found) {
+      setSelectedPoint(found);
+      setFlyTo({ lat: found.lat, lng: found.lng });
+      // URL ni tozalash (history.replaceState - Wouter)
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [allPoints]);
+
   // Real-time session invalidation — SSE orqali boshqa qurilmadan kirsa darhol chiqariladi
   useEffect(() => {
     const token = localStorage.getItem("mapvizit_token");
@@ -972,7 +987,7 @@ export default function MapPage() {
       {selectedPoint && (
         <div className="absolute bottom-0 left-0 right-0 z-[1000] pointer-events-auto"
           style={{ transform: `translateY(${panelDragY}px)`, transition: panelDragY === 0 ? "transform 0.25s ease" : "none" }}>
-          <div className="bg-background/96 backdrop-blur-md border-t rounded-t-3xl shadow-2xl max-h-[72vh] overflow-y-auto">
+          <div className="bg-background/96 backdrop-blur-md border-t rounded-t-3xl shadow-2xl max-h-[55vh] overflow-y-auto">
             <div className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing"
               onTouchStart={onPanelTouchStart}
               onTouchMove={onPanelTouchMove}
@@ -988,7 +1003,7 @@ export default function MapPage() {
                     onClick={() => openLightbox(selectedPoint.images.map((i: any) => i.url), idx)}
                     className="shrink-0 rounded-xl overflow-hidden border focus:outline-none active:scale-95 transition-transform"
                   >
-                    <img src={img.url} alt="" className="h-28 w-40 object-cover" />
+                    <img src={img.url} alt="" className="h-24 w-36 object-cover" />
                   </button>
                 ))}
               </div>
