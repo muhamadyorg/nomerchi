@@ -339,6 +339,29 @@ export default function MapPage() {
   const [editContactForm, setEditContactForm] = useState({ type: "phone", label: "", value: "" });
   const [addingContact, setAddingContact] = useState(false);
 
+  // Panel swipe-to-close
+  const [panelDragY, setPanelDragY] = useState(0);
+  const panelDragStartY = useRef<number | null>(null);
+  const panelIsDragging = useRef(false);
+
+  const onPanelTouchStart = (e: React.TouchEvent) => {
+    panelDragStartY.current = e.touches[0].clientY;
+    panelIsDragging.current = true;
+  };
+  const onPanelTouchMove = (e: React.TouchEvent) => {
+    if (!panelIsDragging.current || panelDragStartY.current === null) return;
+    const dy = e.touches[0].clientY - panelDragStartY.current;
+    if (dy > 0) setPanelDragY(dy);
+  };
+  const onPanelTouchEnd = () => {
+    if (panelDragY > 80) {
+      setSelectedPoint(null);
+    }
+    setPanelDragY(0);
+    panelDragStartY.current = null;
+    panelIsDragging.current = false;
+  };
+
   // Lightbox
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
@@ -928,9 +951,13 @@ export default function MapPage() {
 
       {/* ── POINT DETAIL PANEL ── */}
       {selectedPoint && (
-        <div className="absolute bottom-0 left-0 right-0 z-[1000] pointer-events-auto">
+        <div className="absolute bottom-0 left-0 right-0 z-[1000] pointer-events-auto"
+          style={{ transform: `translateY(${panelDragY}px)`, transition: panelDragY === 0 ? "transform 0.25s ease" : "none" }}>
           <div className="bg-background/96 backdrop-blur-md border-t rounded-t-3xl shadow-2xl max-h-[72vh] overflow-y-auto">
-            <div className="flex justify-center pt-3 pb-1">
+            <div className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing"
+              onTouchStart={onPanelTouchStart}
+              onTouchMove={onPanelTouchMove}
+              onTouchEnd={onPanelTouchEnd}>
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
             </div>
 
