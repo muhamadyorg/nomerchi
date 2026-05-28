@@ -569,21 +569,23 @@ export default function MapPage() {
 
   useEffect(() => { if (isError) setLocation("/login"); }, [isError, setLocation]);
 
-  // Session polling — har 45 sekundda token hali ham amal qiladimi tekshiradi
+  // Real-time session invalidation — SSE orqali boshqa qurilmadan kirsa darhol chiqariladi
   useEffect(() => {
-    const check = async () => {
-      const token = localStorage.getItem("mapvizit_token");
-      if (!token) { setLocation("/login"); return; }
+    const token = localStorage.getItem("mapvizit_token");
+    if (!token) return;
+    const es = new EventSource(`/api/auth/session-events?token=${encodeURIComponent(token)}`);
+    es.onmessage = (e) => {
       try {
-        const res = await fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
-        if (res.status === 401) {
+        const data = JSON.parse(e.data);
+        if (data.kicked) {
+          es.close();
           localStorage.removeItem("mapvizit_token");
           setLocation("/login?kicked=1");
         }
-      } catch { /* tarmoq xatosi — ignore */ }
+      } catch {}
     };
-    const id = setInterval(check, 45_000);
-    return () => clearInterval(id);
+    es.onerror = () => { es.close(); };
+    return () => es.close();
   }, [setLocation]);
 
   // Search
