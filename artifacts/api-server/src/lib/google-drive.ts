@@ -118,5 +118,5 @@ export async function uploadToDrive(
   account.bytesUsed += parseInt(res.data.size ?? "0") || fileBuffer.length;
   await saveDriveAccounts(accounts);
 
-  return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`;
 }
