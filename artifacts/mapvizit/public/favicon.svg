@@ -1,3 +1,12 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="22" fill="url(#bgGrad)"/>
+  <path d="M50 18C37.85 18 28 27.85 28 40C28 54.5 50 82 50 82C50 82 72 54.5 72 40C72 27.85 62.15 18 50 18Z" fill="white" fill-opacity="0.95"/>
+  <circle cx="50" cy="40" r="9" fill="url(#bgGrad)"/>
+  <circle cx="50" cy="40" r="4.5" fill="white" fill-opacity="0.9"/>
 </svg>
