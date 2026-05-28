@@ -1,4 +1,4 @@
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import {
   useGetVizitka, getGetVizitkaQueryKey,
   useGetMe, getGetMeQueryKey,
@@ -8,11 +8,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QRCodeSVG } from "qrcode.react";
-import { MapPin, Phone, Globe, Image as ImageIcon, Crown } from "lucide-react";
+import { MapPin, Phone, Globe, Image as ImageIcon, Crown, ArrowLeft } from "lucide-react";
 import { SiTelegram, SiInstagram } from "react-icons/si";
 
 export default function Vizitka() {
   const { code } = useParams();
+  const [, setLocation] = useLocation();
   const { data: vizitka, isLoading, isError } = useGetVizitka(code || "", {
     query: { queryKey: getGetVizitkaQueryKey(code || ""), enabled: !!code }
   });
@@ -70,6 +71,12 @@ export default function Vizitka() {
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col p-4 md:p-8 items-center">
+      {/* Orqaga tugma */}
+      <div className="w-full max-w-md mb-3">
+        <Button variant="ghost" size="sm" className="gap-2 -ml-2" onClick={() => window.history.length > 1 ? window.history.back() : setLocation("/map")}>
+          <ArrowLeft className="w-4 h-4" /> Orqaga
+        </Button>
+      </div>
       <Card className="w-full max-w-md overflow-hidden border-0 shadow-2xl bg-card">
         {/* Cover Image */}
         <div className="h-48 bg-muted relative">
