@@ -347,6 +347,24 @@ router.post("/drive/migrate", requireRole("sudo"), async (req, res) => {
   res.json({ total: localImages.length, migrated, failed, errors: errors.slice(0, 10) });
 });
 
+// POST /settings/drive/fix-urls  — uc?export=view → thumbnail formatiga o'tkazish
+router.post("/drive/fix-urls", requireRole("sudo"), async (_req, res) => {
+  const allImages = await db.select().from(pointImagesTable);
+  const driveImages = allImages.filter(r =>
+    r.url?.includes("drive.google.com/uc?export=view")
+  );
+  let fixed = 0;
+  for (const img of driveImages) {
+    const match = img.url?.match(/[?&]id=([^&]+)/);
+    if (!match) continue;
+    const fileId = match[1];
+    const newUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`;
+    await db.update(pointImagesTable).set({ url: newUrl }).where(eq(pointImagesTable.id, img.id));
+    fixed++;
+  }
+  res.json({ total: driveImages.length, fixed });
+});
+
 // GET /settings/drive/auth-url
 router.get("/drive/auth-url", requireRole("sudo"), async (_req, res) => {
   try {
