@@ -102,8 +102,11 @@ export default function Sudo() {
 
   // Google Drive
   interface DriveAccount { id: string; email: string; bytesUsed: number; addedAt: string; isFull: boolean; }
-  const [driveStatus, setDriveStatus] = useState<{ configured: boolean; redirectUri: string; accounts: DriveAccount[] } | null>(null);
+  interface DriveStatus { configured: boolean; enabled: boolean; redirectUri: string; localImagesCount: number; accounts: DriveAccount[]; }
+  const [driveStatus, setDriveStatus] = useState<DriveStatus | null>(null);
   const [driveLoading, setDriveLoading] = useState(false);
+  const [migrateLoading, setMigrateLoading] = useState(false);
+  const [migrateResult, setMigrateResult] = useState<{ total: number; migrated: number; failed: number; errors: string[] } | null>(null);
 
   // Import
   const [pendingSql, setPendingSql] = useState<string | null>(null);
@@ -161,6 +164,38 @@ export default function Sudo() {
     const token = localStorage.getItem("mapvizit_token");
     await fetch(`/api/settings/drive/accounts/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
     fetchDriveStatus();
+  };
+
+  const toggleDriveEnabled = async (enabled: boolean) => {
+    const token = localStorage.getItem("mapvizit_token");
+    const r = await fetch("/api/settings/drive/enabled", {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    if (r.ok) {
+      setDriveStatus(prev => prev ? { ...prev, enabled } : prev);
+      toast({ title: enabled ? "Google Drive yoqildi" : "Google Drive o'chirildi" });
+    }
+  };
+
+  const migrateToDriver = async () => {
+    setMigrateLoading(true);
+    setMigrateResult(null);
+    try {
+      const token = localStorage.getItem("mapvizit_token");
+      const r = await fetch("/api/settings/drive/migrate", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await r.json();
+      if (!r.ok) { toast({ title: "Xato", description: data.error, variant: "destructive" }); return; }
+      setMigrateResult(data);
+      fetchDriveStatus();
+      toast({ title: `Ko'chirildi: ${data.migrated} ta rasm`, description: data.failed > 0 ? `${data.failed} ta xato` : "Hammasi muvaffaqiyatli" });
+    } finally {
+      setMigrateLoading(false);
+    }
   };
 
   const formatGB = (bytes: number) => (bytes / (1024 ** 3)).toFixed(2) + " GB";
@@ -771,7 +806,7 @@ export default function Sudo() {
                   Google Drive — Rasm xotirasi
                 </CardTitle>
                 <CardDescription>
-                  Rasmlar serverga emas, Google Drive'ga yuklanadi. Bir necha akkaunt ketma-ket ishlatiladi. 15 GB tugasa avtomatik keyingisiga o'tadi.
+                  Drive yoqilmagan bo'lsa rasmlar serverga saqlanadi. Yoqilganda Drive'ga yuklaydi. Xohlagan vaqt migrate qilish mumkin.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -781,28 +816,53 @@ export default function Sudo() {
                     Yuklanmoqda...
                   </div>
                 )}
+
                 {driveStatus && !driveStatus.configured && (
                   <div className="rounded-md bg-yellow-500/10 border border-yellow-500/30 p-3 text-sm space-y-2">
                     <p className="font-medium text-yellow-400">⚠️ GOOGLE_CLIENT_ID va GOOGLE_CLIENT_SECRET o'rnatilmagan</p>
-                    <p className="text-muted-foreground">Google Cloud Console'da OAuth 2.0 credentials yarating va Replit Secrets'ga qo'shing.</p>
+                    <p className="text-muted-foreground">Server .env fayliga yoki Secrets'ga qo'shing.</p>
                     <p className="text-xs text-muted-foreground">Redirect URI: <code className="bg-muted px-1 py-0.5 rounded text-xs">{driveStatus.redirectUri}</code></p>
                   </div>
                 )}
+
                 {driveStatus?.configured && (
                   <>
+                    {/* Yoqish/O'chirish toggle */}
+                    <div className="flex items-center justify-between rounded-md border border-border p-3">
+                      <div>
+                        <p className="text-sm font-medium">Google Drive</p>
+                        <p className="text-xs text-muted-foreground">
+                          {driveStatus.enabled
+                            ? "Yangi rasmlar Drive'ga yuklanadi"
+                            : "Yangi rasmlar serverga saqlanadi (uploads/)"}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={driveStatus.enabled}
+                        disabled={driveStatus.accounts.length === 0}
+                        onCheckedChange={toggleDriveEnabled}
+                      />
+                    </div>
+
+                    {driveStatus.accounts.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Avval akkaunt qo'shing, keyin yoqish mumkin.</p>
+                    )}
+
                     <div className="text-xs text-muted-foreground">
-                      Redirect URI (Google Cloud Console'ga qo'shing):<br />
+                      Redirect URI:<br />
                       <code className="bg-muted px-1 py-0.5 rounded break-all">{driveStatus.redirectUri}</code>
                     </div>
-                    {driveStatus.accounts.length === 0 && (
-                      <p className="text-sm text-muted-foreground">Hali akkaunt qo'shilmagan. Rasmlar serverga saqlanadi.</p>
-                    )}
+
+                    {/* Akkauntlar */}
                     {driveStatus.accounts.map((acc, i) => (
                       <div key={acc.id} className="rounded-md border border-border p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-medium">{i + 1}. {acc.email}</p>
-                            <p className="text-xs text-muted-foreground">{formatGB(acc.bytesUsed)} / 15 GB {acc.isFull && <span className="text-red-400 font-medium">— To'ldi</span>}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatGB(acc.bytesUsed)} / 15 GB
+                              {acc.isFull && <span className="text-red-400 font-medium ml-1">— To'ldi</span>}
+                            </p>
                           </div>
                           <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => removeDriveAccount(acc.id)}>
                             <Trash2 className="w-4 h-4" />
@@ -816,10 +876,46 @@ export default function Sudo() {
                         </div>
                       </div>
                     ))}
+
                     <Button variant="outline" onClick={openDriveAuth} className="w-full">
                       <Plus className="w-4 h-4 mr-2" />
                       Yangi Google akkaunt qo'shish
                     </Button>
+
+                    {/* Migrate bo'limi */}
+                    {driveStatus.enabled && (
+                      <div className="rounded-md bg-blue-500/10 border border-blue-500/20 p-3 space-y-3">
+                        <div>
+                          <p className="text-sm font-medium text-blue-400">Rasmlarni Drive'ga ko'chirish</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Serverda saqlangan rasmlar: <span className="font-medium text-foreground">{driveStatus.localImagesCount} ta fayl</span>
+                            {" · "}DB dagi local URL lar Drive'ga ko'chiriladi
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={migrateToDriver}
+                          disabled={migrateLoading || driveStatus.localImagesCount === 0}
+                          className="w-full"
+                        >
+                          {migrateLoading
+                            ? <><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />Ko'chirilmoqda...</>
+                            : <><Upload className="w-4 h-4 mr-2" />Barcha rasmlarni Drive'ga ko'chirish</>
+                          }
+                        </Button>
+                        {migrateResult && (
+                          <div className={`rounded text-xs p-2 ${migrateResult.failed > 0 ? "bg-yellow-500/10 text-yellow-400" : "bg-green-500/10 text-green-400"}`}>
+                            Jami: {migrateResult.total} · Ko'chirildi: {migrateResult.migrated} · Xato: {migrateResult.failed}
+                            {migrateResult.errors.length > 0 && (
+                              <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                                {migrateResult.errors.map((e, i) => <li key={i}>• {e}</li>)}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <Button size="sm" variant="ghost" className="text-xs text-muted-foreground" onClick={fetchDriveStatus}>
                       Yangilash
                     </Button>
