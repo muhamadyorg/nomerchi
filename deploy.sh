@@ -242,10 +242,9 @@ if [ "$MODE" = "fresh" ] || [ ! -f "$APP_DIR/.env" ]; then
   # Session Secret
   SESSION_SEC=$(openssl rand -hex 32 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 64 | head -n 1)
 
-  # Domain
-  echo ""
-  ask "Domeningiz (masalan: nomerchi.uz yoki IP)" APP_DOMAIN_INPUT
-  APP_DOMAIN_INPUT="${APP_DOMAIN_INPUT:-$DOMAIN}"
+  # Domain — tepada tanlangan domenni avtomatik ishlatamiz
+  APP_DOMAIN_INPUT="$DOMAIN"
+  ok "Domen: $APP_DOMAIN_INPUT (yuqorida tanlanganidan)"
 
   # Google Drive (ixtiyoriy)
   echo ""
@@ -294,7 +293,7 @@ if [ "$MODE" != "nginx_only" ] && [ -n "${DB_URL:-}" ]; then
   sep
   info "Database sxemasi sinxronlashtirilmoqda..."
   export DATABASE_URL="$DB_URL"
-  if pnpm --filter @workspace/db run push 2>&1 | tail -5; then
+  if yes | pnpm --filter @workspace/db run push 2>&1 | tail -5; then
     ok "Database sxemasi tayyor"
   else
     warn "DB push da muammo bo'lishi mumkin. Keyinroq tekshiring: pnpm --filter @workspace/db run push"
@@ -473,14 +472,22 @@ PYEOF
     show_manual=true
   fi
 
+  # aaPanel nginx binary joyi (standart nginx + aaPanel)
+  NGINX_BIN="nginx"
+  for nb in nginx /www/server/nginx/sbin/nginx /usr/sbin/nginx /usr/local/nginx/sbin/nginx; do
+    if command -v "$nb" &>/dev/null || [ -x "$nb" ]; then
+      NGINX_BIN="$nb"; break
+    fi
+  done
+
   # Nginx test va reload
-  if nginx -t 2>/dev/null; then
-    nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null || true
+  if "$NGINX_BIN" -t 2>/dev/null; then
+    "$NGINX_BIN" -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null || true
     ok "Nginx qayta ishga tushirildi"
   else
     warn "Nginx config xatoligi bor! Backup tiklayapman..."
     cp "${NGINX_CONF}.bak."* "$NGINX_CONF" 2>/dev/null || true
-    nginx -s reload 2>/dev/null || true
+    "$NGINX_BIN" -s reload 2>/dev/null || true
     warn "Backup tiklandi. Nginx config ni qo'lda to'g'irlang."
     show_manual=true
   fi
