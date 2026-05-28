@@ -50,6 +50,18 @@ export function isDriveConfigured(): boolean {
   return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
+/** Drive yoqilgan va kamida bitta bo'sh akkaunt bormi */
+export async function isDriveEnabled(): Promise<boolean> {
+  const enabled = await getSetting("driveEnabled");
+  if (enabled !== "true") return false;
+  const accounts = await getDriveAccounts();
+  return accounts.some(a => a.bytesUsed < BYTES_LIMIT);
+}
+
+export async function setDriveEnabled(value: boolean) {
+  await setSetting("driveEnabled", value ? "true" : "false");
+}
+
 export function generateAuthUrl(): string {
   const auth = createOAuth2Client();
   return auth.generateAuthUrl({
