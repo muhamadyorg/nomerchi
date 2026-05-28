@@ -172,3 +172,8 @@
 }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Leaflet attribution belgisini yashirish */
+.leaflet-control-attribution {
+  display: none !important;
+}
