@@ -14,6 +14,7 @@ router.post("/login", async (req, res) => {
     return;
   }
   const { username, password } = parsed.data;
+  const force = req.body.force === true;
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
   if (!user) {
@@ -27,8 +28,21 @@ router.post("/login", async (req, res) => {
     return;
   }
 
-  const token = signToken({ userId: user.id, role: user.role });
-  const { passwordHash: _ph, ...safeUser } = user;
+  // Agar oldin login qilingan bo'lsa va force yo'q — ogohlantirish
+  if (user.tokenVersion > 0 && !force) {
+    res.status(409).json({
+      requiresForce: true,
+      message: "Bu hisob boshqa qurilmada ochiq. OK bosish orqali eski qurilmadan chiqiladi.",
+    });
+    return;
+  }
+
+  // tokenVersion oshiramiz — eski tokenlar bekor bo'ladi
+  const newVersion = user.tokenVersion + 1;
+  await db.update(usersTable).set({ tokenVersion: newVersion }).where(eq(usersTable.id, user.id));
+
+  const token = signToken({ userId: user.id, role: user.role, tokenVersion: newVersion });
+  const { passwordHash: _ph, tokenVersion: _tv, ...safeUser } = user;
   res.json({ token, user: safeUser });
 });
 
