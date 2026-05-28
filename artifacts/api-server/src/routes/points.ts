@@ -10,7 +10,7 @@ import {
   AssignAdminToPointBody,
 } from "@workspace/api-zod";
 import { generateVizitkaCode } from "../lib/vizitka";
-import { uploadToDrive, getDriveAccounts } from "../lib/google-drive";
+import { uploadToDrive, isDriveEnabled } from "../lib/google-drive";
 
 const router = Router();
 
@@ -190,9 +190,8 @@ router.post("/:id/images/upload", requireAuth, async (req, res) => {
   const canEdit = req.userRole === "sudo" || (req.userRole === "admin" && await isAdminOfPoint(req.userId!, id));
   if (!canEdit) { res.status(403).json({ error: "Forbidden" }); return; }
 
-  // Drive mavjudligini tekshiramiz
-  const driveAccounts = await getDriveAccounts();
-  const driveAvailable = driveAccounts.some(a => a.bytesUsed < 14.5 * 1024 * 1024 * 1024);
+  // Drive yoqilgan va tayyor ekanligini tekshiramiz
+  const driveAvailable = await isDriveEnabled();
 
   const storage = driveAvailable
     ? multer.memoryStorage()
