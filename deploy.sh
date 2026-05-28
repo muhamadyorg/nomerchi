@@ -386,20 +386,54 @@ sep
 source "$APP_DIR/.env" 2>/dev/null || true
 API_PORT="${PORT:-8080}"
 
+# ── PM2 jarayoni ishlamatyaptimi? Nginx_only va update modlarida ham tekshiramiz
+if [ "$MODE" != "fresh" ] && command -v pm2 &>/dev/null; then
+  PM2_STATUS=$(pm2 jlist 2>/dev/null | node -e "
+    try {
+      const list = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+      const p = list.find(x => x.name === 'mapvizit-api');
+      console.log(p ? p.pm2_env?.status : 'not_found');
+    } catch { console.log('error'); }
+  " 2>/dev/null || echo "error")
+
+  if [ "$PM2_STATUS" != "online" ]; then
+    info "mapvizit-api PM2 da topilmadi yoki o'chgan — ishga tushirilmoqda..."
+    set -a; source "$APP_DIR/.env"; set +a
+    pm2 delete mapvizit-api 2>/dev/null || true
+    if [ -f "$APP_DIR/artifacts/api-server/dist/index.mjs" ]; then
+      pm2 start "$APP_DIR/artifacts/api-server/dist/index.mjs" \
+        --name "mapvizit-api" --cwd "$APP_DIR" 2>&1 | tail -3
+      pm2 save >/dev/null 2>&1
+      ok "mapvizit-api qayta ishga tushirildi (port $API_PORT)"
+    else
+      warn "Build topilmadi. Avval 'To'liq qayta o'rnatish' ni tanlang."
+    fi
+  else
+    ok "mapvizit-api PM2 da online (port $API_PORT)"
+  fi
+fi
+
 info "Nginx konfiguratsiyasi topilmoqda..."
 
 # Nginx config joylari (aaPanel + standart)
 NGINX_CONF=""
 POSSIBLE_PATHS=(
   "/www/server/nginx/conf/vhost/$DOMAIN.conf"
-  "/www/server/nginx/conf/vhost/${DOMAIN}.conf"
+  "/www/server/panel/vhost/nginx/$DOMAIN.conf"
+  "/www/server/panel/vhost/nginx/${DOMAIN}.conf"
   "/etc/nginx/sites-available/$DOMAIN"
   "/etc/nginx/sites-available/$DOMAIN.conf"
   "/etc/nginx/conf.d/$DOMAIN.conf"
+  "/etc/nginx/conf.d/${DOMAIN}.conf"
 )
 for p in "${POSSIBLE_PATHS[@]}"; do
   [ -f "$p" ] && { NGINX_CONF="$p"; break; }
 done
+
+# Topilmasa — find bilan qidirish
+if [ -z "$NGINX_CONF" ]; then
+  NGINX_CONF=$(find /www/server /etc/nginx -name "${DOMAIN}.conf" 2>/dev/null | head -1 || true)
+fi
 
 if [ -z "$NGINX_CONF" ]; then
   warn "Nginx vhost config topilmadi. Quyidagi nginx config ni qo'lda qo'shing:"
