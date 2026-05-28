@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "MapVizit - Xarita & Vizitka"
+version = "1.0.0"
+id = "artifacts/mapvizit"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23573
+
+[services.development]
+run = "pnpm --filter @workspace/mapvizit run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mapvizit", "run", "build" ]
+publicDir = "artifacts/mapvizit/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23573"
+BASE_PATH = "/"

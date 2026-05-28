@@ -1,0 +1,952 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: MapVizit API - Map & Digital Business Card Platform
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: points
+    description: Map points
+  - name: categories
+    description: Point categories
+  - name: vizitka
+    description: Digital business cards
+  - name: settings
+    description: App settings
+  - name: saved
+    description: Saved points
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # AUTH
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+
+  # USERS (sudo only)
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [sudo, admin, premium, viewer]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user role or subscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+
+  /users/stats:
+    get:
+      operationId: getUserStats
+      tags: [users]
+      summary: Get user statistics
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStats"
+
+  # CATEGORIES
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all categories
+      responses:
+        "200":
+          description: Categories list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create category (sudo only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+
+  /categories/{id}:
+    patch:
+      operationId: updateCategory
+      tags: [categories]
+      summary: Update category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+    delete:
+      operationId: deleteCategory
+      tags: [categories]
+      summary: Delete category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+
+  # POINTS
+  /points:
+    get:
+      operationId: listPoints
+      tags: [points]
+      summary: List all map points
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          schema:
+            type: integer
+        - name: lat
+          in: query
+          schema:
+            type: number
+        - name: lng
+          in: query
+          schema:
+            type: number
+        - name: radius
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Points list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MapPoint"
+    post:
+      operationId: createPoint
+      tags: [points]
+      summary: Create a map point (sudo only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MapPointInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapPoint"
+
+  /points/{id}:
+    get:
+      operationId: getPoint
+      tags: [points]
+      summary: Get point by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Point
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapPoint"
+    patch:
+      operationId: updatePoint
+      tags: [points]
+      summary: Update point (sudo or assigned admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MapPointUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapPoint"
+    delete:
+      operationId: deletePoint
+      tags: [points]
+      summary: Delete point (sudo only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+
+  /points/{id}/images:
+    post:
+      operationId: addPointImage
+      tags: [points]
+      summary: Add image to point
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PointImageInput"
+      responses:
+        "201":
+          description: Image added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointImage"
+
+  /points/{id}/images/{imageId}:
+    delete:
+      operationId: deletePointImage
+      tags: [points]
+      summary: Delete image from point
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+
+  /points/{id}/contacts:
+    post:
+      operationId: addPointContact
+      tags: [points]
+      summary: Add contact to point
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PointContactInput"
+      responses:
+        "201":
+          description: Contact added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointContact"
+
+  /points/{id}/contacts/{contactId}:
+    delete:
+      operationId: deletePointContact
+      tags: [points]
+      summary: Delete contact from point
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+
+  /points/{id}/assign-admin:
+    post:
+      operationId: assignAdminToPoint
+      tags: [points]
+      summary: Assign admin user to a point (sudo only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignAdminInput"
+      responses:
+        "200":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapPoint"
+
+  /points/stats:
+    get:
+      operationId: getPointStats
+      tags: [points]
+      summary: Points statistics
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointStats"
+
+  # VIZITKA
+  /vizitka/{code}:
+    get:
+      operationId: getVizitka
+      tags: [vizitka]
+      summary: Get vizitka by code (public)
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Vizitka data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VizitkaData"
+        "404":
+          description: Not found
+
+  # SAVED POINTS
+  /saved:
+    get:
+      operationId: listSavedPoints
+      tags: [saved]
+      summary: Get saved points for current user
+      responses:
+        "200":
+          description: Saved points
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MapPoint"
+
+  /saved/{pointId}:
+    post:
+      operationId: savePoint
+      tags: [saved]
+      summary: Save a point
+      parameters:
+        - name: pointId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Saved
+    delete:
+      operationId: unsavePoint
+      tags: [saved]
+      summary: Unsave a point
+      parameters:
+        - name: pointId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unsaved
+
+  # SETTINGS
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get app settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update app settings (sudo only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+
+  /settings/export:
+    get:
+      operationId: exportData
+      tags: [settings]
+      summary: Export full DB backup (sudo only)
+      responses:
+        "200":
+          description: JSON backup
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupData"
+
+  /settings/import:
+    post:
+      operationId: importData
+      tags: [settings]
+      summary: Import DB backup (sudo only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupData"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      required: [id, username, name, role, createdAt]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        telegramId:
+          type: ["string", "null"]
+        telegramUsername:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [sudo, admin, premium, viewer]
+        isPremium:
+          type: boolean
+        premiumExpiresAt:
+          type: ["string", "null"]
+        assignedPointId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    UserUpdate:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [sudo, admin, premium, viewer]
+        isPremium:
+          type: boolean
+        premiumExpiresAt:
+          type: ["string", "null"]
+        assignedPointId:
+          type: ["integer", "null"]
+
+    UserStats:
+      type: object
+      required: [total, sudo, admins, premium, viewers]
+      properties:
+        total:
+          type: integer
+        sudo:
+          type: integer
+        admins:
+          type: integer
+        premium:
+          type: integer
+        viewers:
+          type: integer
+
+    Category:
+      type: object
+      required: [id, name, icon, color]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+        pointCount:
+          type: integer
+
+    CategoryInput:
+      type: object
+      required: [name, icon, color]
+      properties:
+        name:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+
+    CategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+
+    PointContact:
+      type: object
+      required: [id, type, value]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [phone, telegram, instagram, website]
+        value:
+          type: string
+        label:
+          type: ["string", "null"]
+
+    PointContactInput:
+      type: object
+      required: [type, value]
+      properties:
+        type:
+          type: string
+          enum: [phone, telegram, instagram, website]
+        value:
+          type: string
+        label:
+          type: ["string", "null"]
+
+    PointImage:
+      type: object
+      required: [id, url]
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        caption:
+          type: ["string", "null"]
+
+    PointImageInput:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+        caption:
+          type: ["string", "null"]
+
+    MapPoint:
+      type: object
+      required: [id, name, lat, lng, vizitkaCode, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        lat:
+          type: number
+        lng:
+          type: number
+        vizitkaCode:
+          type: string
+        categoryId:
+          type: ["integer", "null"]
+        category:
+          $ref: "#/components/schemas/Category"
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PointContact"
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/PointImage"
+        adminId:
+          type: ["integer", "null"]
+        isSaved:
+          type: boolean
+        createdAt:
+          type: string
+
+    MapPointInput:
+      type: object
+      required: [name, lat, lng]
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        lat:
+          type: number
+        lng:
+          type: number
+        categoryId:
+          type: ["integer", "null"]
+
+    MapPointUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        lat:
+          type: number
+        lng:
+          type: number
+        categoryId:
+          type: ["integer", "null"]
+
+    AssignAdminInput:
+      type: object
+      required: [adminId]
+      properties:
+        adminId:
+          type: ["integer", "null"]
+
+    PointStats:
+      type: object
+      required: [total, byCategory]
+      properties:
+        total:
+          type: integer
+        byCategory:
+          type: array
+          items:
+            type: object
+            required: [categoryName, count]
+            properties:
+              categoryName:
+                type: string
+              count:
+                type: integer
+
+    VizitkaData:
+      type: object
+      required: [point]
+      properties:
+        point:
+          $ref: "#/components/schemas/MapPoint"
+
+    AppSettings:
+      type: object
+      required: [premiumEnabled, botToken, backupChatId]
+      properties:
+        premiumEnabled:
+          type: boolean
+        botToken:
+          type: ["string", "null"]
+        backupChatId:
+          type: ["string", "null"]
+        appName:
+          type: ["string", "null"]
+
+    AppSettingsUpdate:
+      type: object
+      properties:
+        premiumEnabled:
+          type: boolean
+        botToken:
+          type: ["string", "null"]
+        backupChatId:
+          type: ["string", "null"]
+        appName:
+          type: ["string", "null"]
+
+    BackupData:
+      type: object
+      required: [version, exportedAt]
+      properties:
+        version:
+          type: string
+        exportedAt:
+          type: string
+        users:
+          type: array
+          items:
+            type: object
+        categories:
+          type: array
+          items:
+            type: object
+        points:
+          type: array
+          items:
+            type: object
+        contacts:
+          type: array
+          items:
+            type: object
+        images:
+          type: array
+          items:
+            type: object
+        settings:
+          type: array
+          items:
+            type: object
+
+    ImportResult:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        imported:
+          type: object
+          properties:
+            users:
+              type: integer
+            categories:
+              type: integer
+            points:
+              type: integer
