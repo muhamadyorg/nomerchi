@@ -296,6 +296,10 @@ if [ "$MODE" != "nginx_only" ] && [ -n "${DB_URL:-}" ]; then
   pnpm --filter @workspace/db run push 2>&1 | tail -5 || \
     warn "DB push da muammo bo'lishi mumkin. Keyinroq tekshiring: pnpm --filter @workspace/db run push"
   ok "Database sxemasi tayyor"
+
+  # Sudo foydalanuvchi yaratish
+  info "Sudo foydalanuvchi tekshirilmoqda..."
+  DATABASE_URL="$DB_URL" node "$APP_DIR/scripts/src/seed.mjs" 2>&1 | sed 's/^/  /'
 fi
 
 # ════════════════════════════════════════════════════════════════
