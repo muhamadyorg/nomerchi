@@ -2,7 +2,8 @@ import { Router } from "express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { LoginBody } from "@workspace/api-zod";
-import { signToken, comparePassword, hashPassword, requireAuth, getCurrentUser } from "../lib/auth";
+import { signToken, comparePassword, hashPassword, requireAuth, getCurrentUser, verifyToken } from "../lib/auth";
+import { addConnection, removeConnection, kickUser } from "../lib/session-manager";
 
 const router = Router();
 
@@ -41,6 +42,9 @@ router.post("/login", async (req, res) => {
   const newVersion = user.tokenVersion + 1;
   await db.update(usersTable).set({ tokenVersion: newVersion }).where(eq(usersTable.id, user.id));
 
+  // Eski qurilmani real-time chiqarish
+  kickUser(user.id);
+
   const token = signToken({ userId: user.id, role: user.role, tokenVersion: newVersion });
   const { passwordHash: _ph, tokenVersion: _tv, ...safeUser } = user;
   res.json({ token, user: safeUser });
@@ -55,6 +59,32 @@ router.get("/me", requireAuth, async (req, res) => {
   }
   const { passwordHash: _ph, ...safeUser } = user;
   res.json(safeUser);
+});
+
+// GET /auth/session-events — SSE: real-time session invalidation
+router.get("/session-events", (req, res) => {
+  const token = req.query.token as string | undefined;
+  if (!token) { res.status(401).end(); return; }
+  let payload: { userId: number; tokenVersion: number } | null = null;
+  try { payload = verifyToken(token) as any; } catch { res.status(401).end(); return; }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  // Ping har 25 sekundda (proxy timeout oldini olish)
+  res.write(": ping\n\n");
+  const ping = setInterval(() => { try { res.write(": ping\n\n"); } catch {} }, 25_000);
+
+  const userId = payload.userId;
+  addConnection(userId, res);
+
+  req.on("close", () => {
+    clearInterval(ping);
+    removeConnection(userId, res);
+  });
 });
 
 // POST /auth/logout
