@@ -2,7 +2,7 @@ import { useGetMe, useListSavedPoints, getListSavedPointsQueryKey } from "@works
 import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft, MapPin, Map } from "lucide-react";
 import { useEffect } from "react";
 
 export default function Saved() {
@@ -39,11 +39,21 @@ export default function Saved() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {points?.map(point => (
-            <Card key={point.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation(`/vizitka/${point.vizitkaCode}`)}>
-              <CardHeader>
-                <CardTitle>{point.name}</CardTitle>
+            <Card key={point.id} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">{point.name}</CardTitle>
                 <div className="text-sm text-muted-foreground line-clamp-2">{point.description}</div>
               </CardHeader>
+              <CardContent className="pt-0 flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-xs"
+                  onClick={() => setLocation(`/map?pointId=${point.id}`)}>
+                  <Map className="w-3.5 h-3.5" /> Xaritada ko'r
+                </Button>
+                <Button size="sm" variant="ghost" className="flex-1 gap-1.5 text-xs"
+                  onClick={() => setLocation(`/vizitka/${point.vizitkaCode}`)}>
+                  <MapPin className="w-3.5 h-3.5" /> Vizitka
+                </Button>
+              </CardContent>
             </Card>
           ))}
         </div>
