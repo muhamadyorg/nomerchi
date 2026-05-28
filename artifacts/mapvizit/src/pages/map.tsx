@@ -207,6 +207,21 @@ function FlyToPoint({ lat, lng }: { lat: number; lng: number }) {
   return null;
 }
 
+function FlyToUserOnStart() {
+  const map = useMap();
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1.2 });
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+    );
+  }, [map]);
+  return null;
+}
+
 function ClusterLayer({
   points,
   selectedId,
@@ -752,6 +767,7 @@ export default function MapPage() {
       <MapContainer center={[41.2995, 69.2401]} zoom={12} className="w-full h-full" zoomControl={false}>
         <TileLayer url={tileUrl} attribution="&copy; OpenStreetMap/CARTO" />
         <MapController mapRef={mapRef} />
+        <FlyToUserOnStart />
         {flyTo && <FlyToPoint lat={flyTo.lat} lng={flyTo.lng} />}
 
         {/* User location with direction arrow */}
