@@ -351,14 +351,15 @@ router.post("/drive/migrate", requireRole("sudo"), async (req, res) => {
 router.post("/drive/fix-urls", requireRole("sudo"), async (_req, res) => {
   const allImages = await db.select().from(pointImagesTable);
   const driveImages = allImages.filter(r =>
-    r.url?.includes("drive.google.com/uc?export=view")
+    r.url?.includes("drive.google.com")
   );
   let fixed = 0;
   for (const img of driveImages) {
-    const match = img.url?.match(/[?&]id=([^&]+)/);
+    const match = img.url?.match(/[?&]id=([^&]+)/) || img.url?.match(/\/d\/([^/?&]+)/);
     if (!match) continue;
     const fileId = match[1];
-    const newUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`;
+    const newUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+    if (img.url === newUrl) continue;
     await db.update(pointImagesTable).set({ url: newUrl }).where(eq(pointImagesTable.id, img.id));
     fixed++;
   }
